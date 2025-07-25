@@ -399,14 +399,23 @@
     <div class="notification" id="notification"></div>
     
     <script>
-        // Initialize user data with Telegram user ID as key
+        // Get or create user-specific data storage
         function getUserData() {
             // Get Telegram user ID if available
             let telegramUserId = 'unknown';
             if (window.Telegram && window.Telegram.WebApp) {
                 const tgUser = window.Telegram.WebApp.initDataUnsafe.user;
                 if (tgUser && tgUser.id) {
-                    telegramUserId = tgUser.id.toString();
+                    telegramUserId = 'tg_' + tgUser.id.toString();
+                }
+            }
+            
+            // If not in Telegram, use a generated ID stored in localStorage
+            if (telegramUserId === 'unknown') {
+                telegramUserId = localStorage.getItem('localUserId');
+                if (!telegramUserId) {
+                    telegramUserId = 'local_' + Math.random().toString(36).substr(2, 9);
+                    localStorage.setItem('localUserId', telegramUserId);
                 }
             }
             
@@ -420,7 +429,9 @@
                     withdrawals: [],
                     referrals: [],
                     earnings: [],
-                    userId: 'user_' + Math.random().toString(36).substr(2, 9)
+                    userId: telegramUserId.startsWith('tg_') ? 
+                        'user_' + telegramUserId.substr(3) : 
+                        'user_' + Math.random().toString(36).substr(2, 9)
                 };
                 localStorage.setItem('allEarnUserData', JSON.stringify(allUserData));
             }
@@ -456,8 +467,6 @@
         // Update balance display
         function updateBalance() {
             document.getElementById('balance').textContent = balance.toFixed(2);
-            
-            // Update user data
             currentUser.data.balance = balance;
             saveUserData(currentUser);
             
@@ -482,7 +491,6 @@
                 date: new Date().toLocaleString()
             });
             
-            // Update user data
             currentUser.data.earnings = earnings;
             saveUserData(currentUser);
             
@@ -584,8 +592,6 @@
             };
             
             withdrawals.unshift(withdrawal);
-            
-            // Update user data
             currentUser.data.withdrawals = withdrawals;
             saveUserData(currentUser);
             
@@ -631,8 +637,6 @@
                     };
                     
                     referrals.unshift(referral);
-                    
-                    // Update user data
                     currentUser.data.referrals = referrals;
                     saveUserData(currentUser);
                     
