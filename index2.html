@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Watch & Earn - Admin Panel</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a2a3a 0%, #2a3a4a 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: white;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #f8c537;
+        }
+        
+        .logout-btn {
+            background: #f12711;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        .admin-nav {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .nav-btn {
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        .nav-btn.active {
+            background: #3a7bd5;
+        }
+        
+        .panel-section {
+            display: none;
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 15px;
+        }
+        
+        .panel-section.active {
+            display: block;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        th {
+            background: rgba(0,0,0,0.3);
+        }
+        
+        tr:hover {
+            background: rgba(255,255,255,0.05);
+        }
+        
+        .action-btn {
+            padding: 5px 10px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            margin-right: 5px;
+        }
+        
+        .edit-btn {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .delete-btn {
+            background: #f44336;
+            color: white;
+        }
+        
+        .login-container {
+            max-width: 400px;
+            margin: 50px auto;
+            background: rgba(255,255,255,0.1);
+            padding: 30px;
+            border-radius: 10px;
+        }
+        
+        .login-title {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #f8c537;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(0,0,0,0.3);
+            color: white;
+        }
+        
+        .login-btn {
+            width: 100%;
+            padding: 12px;
+            background: #3a7bd5;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .stats-cards {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #f8c537;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="login-page" class="login-container">
+        <h2 class="login-title">Admin Login</h2>
+        <div class="form-group">
+            <label>Username</label>
+            <input type="text" id="admin-username" placeholder="Enter admin username">
+        </div>
+        <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="admin-password" placeholder="Enter password">
+        </div>
+        <button class="login-btn" onclick="login()">Login</button>
+        <p id="login-error" style="color: #f44336; margin-top: 10px; display: none;">Invalid credentials</p>
+    </div>
+    
+    <div id="admin-panel" class="container" style="display: none;">
+        <header>
+            <div class="logo">Watch & Earn - Admin Panel</div>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </header>
+        
+        <div class="stats-cards">
+            <div class="stat-card">
+                <div>Total Users</div>
+                <div class="stat-value" id="total-users">0</div>
+            </div>
+            <div class="stat-card">
+                <div>Total Earnings</div>
+                <div class="stat-value" id="total-earnings">₹0</div>
+            </div>
+            <div class="stat-card">
+                <div>Pending Withdrawals</div>
+                <div class="stat-value" id="pending-withdrawals">0</div>
+            </div>
+            <div class="stat-card">
+                <div>Today's Earnings</div>
+                <div class="stat-value" id="today-earnings">₹0</div>
+            </div>
+        </div>
+        
+        <div class="admin-nav">
+            <button class="nav-btn active" onclick="showSection('users')">Users</button>
+            <button class="nav-btn" onclick="showSection('withdrawals')">Withdrawals</button>
+            <button class="nav-btn" onclick="showSection('earnings')">Earnings</button>
+            <button class="nav-btn" onclick="showSection('settings')">Settings</button>
+        </div>
+        
+        <div id="users-section" class="panel-section active">
+            <h3>All Users</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>User ID</th>
+                        <th>Balance</th>
+                        <th>Referrals</th>
+                        <th>Last Active</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="users-table">
+                    <!-- Users will be loaded here -->
+                </tbody>
+            </table>
+        </div>
+        
+        <div id="withdrawals-section" class="panel-section">
+            <h3>Withdrawal Requests</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>User ID</th>
+                        <th>Amount</th>
+                        <th>UPI ID</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="withdrawals-table">
+                    <!-- Withdrawals will be loaded here -->
+                </tbody>
+            </table>
+        </div>
+        
+        <div id="earnings-section" class="panel-section">
+            <h3>Earnings Data</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Total Earnings</th>
+                        <th>Ad Views</th>
+                        <th>Referral Earnings</th>
+                    </tr>
+                </thead>
+                <tbody id="earnings-table">
+                    <!-- Earnings data will be loaded here -->
+                </tbody>
+            </table>
+        </div>
+        
+        <div id="settings-section" class="panel-section">
+            <h3>App Settings</h3>
+            <div class="form-group">
+                <label>Earning Rate per Ad (₹)</label>
+                <input type="number" id="ad-rate" value="0.50" step="0.10">
+            </div>
+            <div class="form-group">
+                <label>Minimum Withdrawal Amount (₹)</label>
+                <input type="number" id="min-withdrawal" value="100">
+            </div>
+            <div class="form-group">
+                <label>Referral Bonus (₹)</label>
+                <input type="number" id="referral-bonus" value="0.50" step="0.10">
+            </div>
+            <button class="login-btn" onclick="saveSettings()">Save Settings</button>
+        </div>
+    </div>
+    
+    <script>
+        // Hardcoded admin credentials (for demo only)
+        const ADMIN_CREDENTIALS = {
+            username: "admin",
+            password: "admin123"
+        };
+        
+        // Check if admin is logged in
+        function checkLogin() {
+            return localStorage.getItem('adminLoggedIn') === 'true';
+        }
+        
+        // Login function
+        function login() {
+            const username = document.getElementById('admin-username').value;
+            const password = document.getElementById('admin-password').value;
+            
+            if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
+                localStorage.setItem('adminLoggedIn', 'true');
+                showAdminPanel();
+            } else {
+                document.getElementById('login-error').style.display = 'block';
+            }
+        }
+        
+        // Logout function
+        function logout() {
+            localStorage.removeItem('adminLoggedIn');
+            window.location.reload();
+        }
+        
+        // Show admin panel
+        function showAdminPanel() {
+            document.getElementById('login-page').style.display = 'none';
+            document.getElementById('admin-panel').style.display = 'block';
+            loadAdminData();
+        }
+        
+        // Show section
+        function showSection(sectionId) {
+            document.querySelectorAll('.panel-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            document.getElementById(sectionId + '-section').classList.add('active');
+            event.target.classList.add('active');
+            
+            // Refresh section data
+            if (sectionId === 'users') loadUsers();
+            else if (sectionId === 'withdrawals') loadWithdrawals();
+            else if (sectionId === 'earnings') loadEarnings();
+        }
+        
+        // Load all admin data
+        function loadAdminData() {
+            // In a real app, you would fetch this from a server
+            // For this demo, we'll use localStorage data from the main app
+            
+            // Load stats
+            const allUserData = JSON.parse(localStorage.getItem('allEarnUserData')) || {};
+            const users = Object.keys(allUserData).length;
+            document.getElementById('total-users').textContent = users;
+            
+            // Calculate total earnings
+            let totalEarnings = 0;
+            let pendingWithdrawals = 0;
+            Object.values(allUserData).forEach(user => {
+                totalEarnings += user.balance;
+                pendingWithdrawals += user.withdrawals.filter(w => w.status === 'Pending').length;
+            });
+            
+            document.getElementById('total-earnings').textContent = '₹' + totalEarnings.toFixed(2);
+            document.getElementById('pending-withdrawals').textContent = pendingWithdrawals;
+            
+            // For demo purposes, set today's earnings randomly
+            document.getElementById('today-earnings').textContent = '₹' + (Math.random() * 100).toFixed(2);
+            
+            // Load users
+            loadUsers();
+        }
+        
+        // Load users table
+        function loadUsers() {
+            const allUserData = JSON.parse(localStorage.getItem('allEarnUserData')) || {};
+            const usersTable = document.getElementById('users-table');
+            usersTable.innerHTML = '';
+            
+            Object.entries(allUserData).forEach(([userId, userData]) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${userId.substring(0, 8)}...</td>
+                    <td>₹${userData.balance.toFixed(2)}</td>
+                    <td>${userData.referrals.length}</td>
+                    <td>${new Date().toLocaleDateString()}</td>
+                    <td>
+                        <button class="action-btn edit-btn" onclick="editUser('${userId}')">Edit</button>
+                        <button class="action-btn delete-btn" onclick="deleteUser('${userId}')">Delete</button>
+                    </td>
+                `;
+                usersTable.appendChild(row);
+            });
+        }
+        
+        // Load withdrawals table
+        function loadWithdrawals() {
+            const allUserData = JSON.parse(localStorage.getItem('allEarnUserData')) || {};
+            const withdrawalsTable = document.getElementById('withdrawals-table');
+            withdrawalsTable.innerHTML = '';
+            
+            Object.entries(allUserData).forEach(([userId, userData]) => {
+                userData.withdrawals.forEach(withdrawal => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${userId.substring(0, 8)}...</td>
+                        <td>₹${withdrawal.amount}</td>
+                        <td>${withdrawal.upiId}</td>
+                        <td>${withdrawal.date}</td>
+                        <td>${withdrawal.status}</td>
+                        <td>
+                            ${withdrawal.status === 'Pending' ? `
+                                <button class="action-btn edit-btn" onclick="approveWithdrawal('${userId}', '${withdrawal.amount}')">Approve</button>
+                                <button class="action-btn delete-btn" onclick="rejectWithdrawal('${userId}', '${withdrawal.amount}')">Reject</button>
+                            ` : ''}
+                        </td>
+                    `;
+                    withdrawalsTable.appendChild(row);
+                });
+            });
+        }
+        
+        // Load earnings table
+        function loadEarnings() {
+            const earningsTable = document.getElementById('earnings-table');
+            earningsTable.innerHTML = '';
+            
+            // Generate dummy data for demo
+            for (let i = 0; i < 7; i++) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${date.toLocaleDateString()}</td>
+                    <td>₹${(Math.random() * 100).toFixed(2)}</td>
+                    <td>${Math.floor(Math.random() * 50)}</td>
+                    <td>₹${(Math.random() * 20).toFixed(2)}</td>
+                `;
+                earningsTable.appendChild(row);
+            }
+        }
+        
+        // Edit user function
+        function editUser(userId) {
+            const allUserData = JSON.parse(localStorage.getItem('allEarnUserData')) || {};
+            const userData = allUserData[userId];
+            
+            const newBalance = prompt("Enter new balance for user:", userData.balance);
+            if (newBalance !== null && !isNaN(newBalance)) {
+                userData.balance = parseFloat(newBalance);
+                allUserData[userId] = userData;
+                localStorage.setItem('allEarnUserData', JSON.stringify(allUserData));
+                loadUsers();
+                alert("User balance updated successfully!");
+            }
+        }
+        
+        // Delete user function
+        function deleteUser(userId) {
+            if (confirm("Are you sure you want to delete this user?")) {
+                const allUserData = JSON.parse(localStorage.getItem('allEarnUserData')) || {};
+                delete allUserData[userId];
+                localStorage.setItem('allEarnUserData', JSON.stringify(allUserData));
+                loadUsers();
+                alert("User deleted successfully!");
+            }
+        }
+        
+        // Approve withdrawal
+        function approveWithdrawal(userId, amount) {
+            const allUserData = JSON.parse(localStorage.getItem('allEarnUserData')) || {};
+            const userData = allUserData[userId];
+            
+            // Find and update the withdrawal status
+            userData.withdrawals.forEach(w => {
+                if (w.amount === amount && w.status === 'Pending') {
+                    w.status = 'Approved';
+                }
+            });
+            
+            allUserData[userId] = userData;
+            localStorage.setItem('allEarnUserData', JSON.stringify(allUserData));
+            loadWithdrawals();
+            alert("Withdrawal approved successfully!");
+        }
+        
+        // Reject withdrawal
+        function rejectWithdrawal(userId, amount) {
+            const allUserData = JSON.parse(localStorage.getItem('allEarnUserData')) || {};
+            const userData = allUserData[userId];
+            
+            // Find and update the withdrawal status
+            userData.withdrawals.forEach(w => {
+                if (w.amount === amount && w.status === 'Pending') {
+                    w.status = 'Rejected';
+                    // Add the amount back to user's balance
+                    userData.balance += parseFloat(amount);
+                }
+            });
+            
+            allUserData[userId] = userData;
+            localStorage.setItem('allEarnUserData', JSON.stringify(allUserData));
+            loadWithdrawals();
+            alert("Withdrawal rejected and amount returned to user balance!");
+        }
+        
+        // Save settings
+        function saveSettings() {
+            const adRate = document.getElementById('ad-rate').value;
+            const minWithdrawal = document.getElementById('min-withdrawal').value;
+            const referralBonus = document.getElementById('referral-bonus').value;
+            
+            // In a real app, you would save these to a server
+            // For this demo, we'll just show a confirmation
+            alert(`Settings saved:
+                   Ad Rate: ₹${adRate}
+                   Min Withdrawal: ₹${minWithdrawal}
+                   Referral Bonus: ₹${referralBonus}`);
+        }
+        
+        // Check if admin is already logged in
+        if (checkLogin()) {
+            showAdminPanel();
+        }
+    </script>
+</body>
+</html>
