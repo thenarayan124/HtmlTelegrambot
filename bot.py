@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-🎯 TaskCompleteRewardsBot - Complete Self-Contained Bot File
+🎯 TaskCompleteRewardsBot - Complete Self-Contained Single File Bot
 
 एक पूर्ण फीचर्ड Telegram बॉट जो यूजर्स को टास्क पूरा करने के लिए रिवॉर्ड देता है और UPI के माध्यम से पेमेंट सिस्टम प्रदान करता है।
 
@@ -23,7 +23,7 @@ INSTALLATION & SETUP:
    Method A - Environment Variable:
    export BOT_TOKEN="your_bot_token_here"
    
-   Method B - Edit line ~77 in this file:
+   Method B - Edit BOT_TOKEN variable below (line ~77):
    BOT_TOKEN = "your_bot_token_here"
 
 4. Run the bot:
@@ -113,15 +113,6 @@ UPI Withdrawal Process:
 3. Admin reviews and approves
 4. Payment sent to user's UPI
 
-DATABASE FILES:
-==============
-All data stored in 'data/' directory:
-- users.json: User accounts and balances
-- tasks.json: Available tasks
-- submissions.json: Screenshot submissions
-- withdrawals.json: Withdrawal requests
-- logs.json: Activity logs
-
 MILESTONE REWARDS:
 =================
 Referral Milestones:
@@ -134,13 +125,14 @@ Referral Milestones:
 Task Rewards: ₹2-5 per completed task
 Referral Rewards: ₹2 per successful referral
 
+DATA STORAGE: All data stored in memory (no external files needed)
+
 Author: TaskCompleteRewardsBot Team
-Version: 1.0
+Version: 2.0 (Single File Complete)
 License: MIT
 """
 
 import os
-import json
 import threading
 import time
 import random
@@ -151,7 +143,10 @@ from flask import Flask
 import telebot
 from telebot import types
 
+# ======================
 # Configuration
+# ======================
+
 BOT_TOKEN = os.getenv('BOT_TOKEN', '7599681001:AAGLez6NxGQ3VsE8itJ1E0U73r8ZtUYvZkc')
 ADMIN_ID = 5367009004  # Admin ID as specified
 MIN_WITHDRAWAL = 10  # ₹10 minimum withdrawal
@@ -177,218 +172,101 @@ TASK_TYPES = {
     'whatsapp_join': 'WhatsApp Join'
 }
 
-# File paths
-DATA_DIR = "data"
-USERS_FILE = os.path.join(DATA_DIR, "users.json")
-TASKS_FILE = os.path.join(DATA_DIR, "tasks.json")
-SUBMISSIONS_FILE = os.path.join(DATA_DIR, "submissions.json")
-WITHDRAWALS_FILE = os.path.join(DATA_DIR, "withdrawals.json")
-LOG_FILE = os.path.join(DATA_DIR, "logs.json")
+# ======================
+# In-Memory Data Storage (No External Files)
+# ======================
+
+# Users database
+USERS_DB = {}
+
+# Tasks database with sample tasks
+TASKS_DB = [
+    {
+        'id': 'task_sample_1',
+        'title': 'YouTube Channel Subscribe करें',
+        'description': 'हमारे YouTube चैनल को सब्सक्राइब करें और बेल आइकन दबाएं',
+        'link': 'https://youtube.com/@example',
+        'reward': 5,
+        'type': 'youtube_subscribe',
+        'active': True,
+        'created_at': '2025-01-01 00:00:00',
+        'completed_count': 0
+    },
+    {
+        'id': 'task_sample_2',
+        'title': 'Instagram Page Follow करें',
+        'description': 'हमारे Instagram पेज को फॉलो करें',
+        'link': 'https://instagram.com/example',
+        'reward': 3,
+        'type': 'instagram_follow',
+        'active': True,
+        'created_at': '2025-01-01 00:00:00',
+        'completed_count': 0
+    },
+    {
+        'id': 'task_sample_3',
+        'title': 'Telegram Group Join करें',
+        'description': 'हमारे Telegram ग्रुप में शामिल हों',
+        'link': 'https://t.me/example',
+        'reward': 4,
+        'type': 'telegram_join',
+        'active': True,
+        'created_at': '2025-01-01 00:00:00',
+        'completed_count': 0
+    },
+    {
+        'id': 'task_sample_4',
+        'title': 'Facebook Page Like करें',
+        'description': 'हमारे Facebook पेज को लाइक करें',
+        'link': 'https://facebook.com/example',
+        'reward': 3,
+        'type': 'facebook_like',
+        'active': True,
+        'created_at': '2025-01-01 00:00:00',
+        'completed_count': 0
+    },
+    {
+        'id': 'task_sample_5',
+        'title': 'WhatsApp Group Join करें',
+        'description': 'हमारे WhatsApp ग्रुप में शामिल हों',
+        'link': 'https://chat.whatsapp.com/example',
+        'reward': 2,
+        'type': 'whatsapp_join',
+        'active': True,
+        'created_at': '2025-01-01 00:00:00',
+        'completed_count': 0
+    }
+]
+
+# Submissions database
+SUBMISSIONS_DB = {}
+
+# Withdrawals database
+WITHDRAWALS_DB = []
+
+# Activity logs
+ACTIVITY_LOGS = []
+
+# Global variables
+blocked_users = set()
+user_current_task = {}
 
 # Initialize bot
 bot = telebot.TeleBot(BOT_TOKEN)
-blocked_users = set()
-
-# Ensure data directory exists
-if not os.path.exists(DATA_DIR):
-    os.makedirs(DATA_DIR)
 
 # ======================
-# Database Functions
-# ======================
-
-def initialize_data_files():
-    for file_path in [USERS_FILE, TASKS_FILE, SUBMISSIONS_FILE, WITHDRAWALS_FILE]:
-        if not os.path.exists(file_path):
-            with open(file_path, 'w') as f:
-                if file_path == TASKS_FILE:
-                    json.dump([], f)
-                elif file_path == SUBMISSIONS_FILE:
-                    json.dump({}, f)
-                elif file_path == WITHDRAWALS_FILE:
-                    json.dump([], f)
-                else:
-                    json.dump({}, f)
-
-def get_user_data(user_id):
-    try:
-        with open(USERS_FILE, 'r') as f:
-            users = json.load(f)
-            return users.get(str(user_id))
-    except (FileNotFoundError, json.JSONDecodeError):
-        return None
-
-def update_user_data(user_id, data=None, field=None, value=None):
-    try:
-        with open(USERS_FILE, 'r+') as f:
-            users = json.load(f)
-            
-            if data:
-                users[str(user_id)] = data
-            elif field:
-                if str(user_id) not in users:
-                    users[str(user_id)] = {}
-                users[str(user_id)][field] = value
-            
-            f.seek(0)
-            json.dump(users, f)
-            f.truncate()
-            return True
-    except (FileNotFoundError, json.JSONDecodeError):
-        return False
-
-def get_tasks():
-    try:
-        with open(TASKS_FILE, 'r') as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return []
-
-def add_task(task):
-    try:
-        with open(TASKS_FILE, 'r+') as f:
-            tasks = json.load(f)
-            tasks.append(task)
-            f.seek(0)
-            json.dump(tasks, f)
-            f.truncate()
-            return True
-    except (FileNotFoundError, json.JSONDecodeError):
-        return False
-
-def record_submission(user_id, task_id, file_id):
-    try:
-        with open(SUBMISSIONS_FILE, 'r+') as f:
-            submissions = json.load(f)
-            
-            if str(user_id) not in submissions:
-                submissions[str(user_id)] = []
-            
-            submissions[str(user_id)].append({
-                'task_id': task_id,
-                'file_id': file_id,
-                'status': 'pending',
-                'submitted_at': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            })
-            
-            f.seek(0)
-            json.dump(submissions, f)
-            f.truncate()
-            return True
-    except (FileNotFoundError, json.JSONDecodeError):
-        return False
-
-def get_pending_submissions():
-    try:
-        with open(SUBMISSIONS_FILE, 'r') as f:
-            submissions = json.load(f)
-            pending = []
-            
-            for user_id, user_submissions in submissions.items():
-                for sub in user_submissions:
-                    if sub['status'] == 'pending':
-                        pending.append({
-                            'user_id': user_id,
-                            'task_id': sub['task_id'],
-                            'file_id': sub['file_id'],
-                            'submitted_at': sub['submitted_at']
-                        })
-            
-            return pending
-    except (FileNotFoundError, json.JSONDecodeError):
-        return []
-
-def update_submission_status(user_id, task_id, status, reason=None):
-    try:
-        with open(SUBMISSIONS_FILE, 'r+') as f:
-            submissions = json.load(f)
-            
-            if str(user_id) not in submissions:
-                return False
-            
-            for sub in submissions[str(user_id)]:
-                if sub['task_id'] == task_id and sub['status'] == 'pending':
-                    sub['status'] = status
-                    sub['processed_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    if reason:
-                        sub['reason'] = reason
-                    break
-            
-            f.seek(0)
-            json.dump(submissions, f)
-            f.truncate()
-            return True
-    except (FileNotFoundError, json.JSONDecodeError):
-        return False
-
-def request_withdrawal(user_id, amount, method):
-    try:
-        with open(WITHDRAWALS_FILE, 'r+') as f:
-            withdrawals = json.load(f)
-            
-            withdrawals.append({
-                'user_id': str(user_id),
-                'amount': amount,
-                'method': method,
-                'status': 'pending',
-                'requested_at': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            })
-            
-            f.seek(0)
-            json.dump(withdrawals, f)
-            f.truncate()
-            return True
-    except (FileNotFoundError, json.JSONDecodeError):
-        return False
-
-def get_pending_withdrawals():
-    try:
-        with open(WITHDRAWALS_FILE, 'r') as f:
-            withdrawals = json.load(f)
-            return [w for w in withdrawals if w['status'] == 'pending']
-    except (FileNotFoundError, json.JSONDecodeError):
-        return []
-
-def update_withdrawal_status(user_id, requested_at, status):
-    try:
-        with open(WITHDRAWALS_FILE, 'r+') as f:
-            withdrawals = json.load(f)
-            
-            for w in withdrawals:
-                if w['user_id'] == str(user_id) and w['requested_at'] == requested_at:
-                    w['status'] = status
-                    w['processed_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    break
-            
-            f.seek(0)
-            json.dump(withdrawals, f)
-            f.truncate()
-            return True
-    except (FileNotFoundError, json.JSONDecodeError):
-        return False
-
-# ======================
-# Utility Functions
+# Database Functions (In-Memory)
 # ======================
 
 def log_activity(message):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    log_entry = {
-        "timestamp": timestamp,
-        "message": message
-    }
-    
-    try:
-        with open(LOG_FILE, 'r') as f:
-            logs = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        logs = []
-    
-    logs.append(log_entry)
-    
-    with open(LOG_FILE, 'w') as f:
-        json.dump(logs, f, indent=2)
-    
+    ACTIVITY_LOGS.append({
+        'timestamp': timestamp,
+        'message': message
+    })
+    # Keep only last 100 logs to prevent memory overflow
+    if len(ACTIVITY_LOGS) > 100:
+        ACTIVITY_LOGS.pop(0)
     print(f"[{timestamp}] {message}")
 
 def generate_referral_code(user_id):
@@ -402,8 +280,69 @@ def is_user_blocked(user_id):
 
 def block_user(user_id):
     blocked_users.add(str(user_id))
-    update_user_data(user_id, 'blocked', True)
+    if str(user_id) in USERS_DB:
+        USERS_DB[str(user_id)]['blocked'] = True
     log_activity(f"User {user_id} blocked by system")
+
+def get_user_data(user_id):
+    return USERS_DB.get(str(user_id))
+
+def update_user_data(user_id, data=None, field=None, value=None):
+    if data:
+        USERS_DB[str(user_id)] = data
+    elif field:
+        if str(user_id) not in USERS_DB:
+            USERS_DB[str(user_id)] = {}
+        USERS_DB[str(user_id)][field] = value
+    return True
+
+def get_tasks():
+    return TASKS_DB
+
+def add_task(task):
+    TASKS_DB.append(task)
+    return True
+
+def record_submission(user_id, task_id, file_id):
+    if str(user_id) not in SUBMISSIONS_DB:
+        SUBMISSIONS_DB[str(user_id)] = []
+    
+    SUBMISSIONS_DB[str(user_id)].append({
+        'task_id': task_id,
+        'file_id': file_id,
+        'status': 'pending',
+        'submitted_at': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    })
+    return True
+
+def get_pending_submissions():
+    pending = []
+    for user_id, user_submissions in SUBMISSIONS_DB.items():
+        for sub in user_submissions:
+            if sub['status'] == 'pending':
+                pending.append({
+                    'user_id': user_id,
+                    'task_id': sub['task_id'],
+                    'file_id': sub['file_id'],
+                    'submitted_at': sub['submitted_at']
+                })
+    return pending
+
+def update_submission_status(user_id, task_id, status, reason=None):
+    if str(user_id) not in SUBMISSIONS_DB:
+        return False
+    
+    for sub in SUBMISSIONS_DB[str(user_id)]:
+        if sub['task_id'] == task_id and sub['status'] == 'pending':
+            sub['status'] = status
+            sub['processed_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            if reason:
+                sub['reason'] = reason
+            break
+    return True
+
+def get_pending_withdrawals():
+    return [w for w in WITHDRAWALS_DB if w['status'] == 'pending']
 
 # ======================
 # Keep Alive Server
@@ -413,7 +352,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "TaskRewardBot is running!"
+    return "TaskCompleteRewardsBot is running!"
 
 @app.route('/ping')
 def ping():
@@ -426,6 +365,17 @@ def status():
 @app.route('/alive')
 def alive():
     return "OK"
+
+@app.route('/stats')
+def web_stats():
+    stats = {
+        'total_users': len(USERS_DB),
+        'total_tasks': len(TASKS_DB),
+        'pending_submissions': len(get_pending_submissions()),
+        'pending_withdrawals': len(get_pending_withdrawals()),
+        'activity_logs': len(ACTIVITY_LOGS)
+    }
+    return stats
 
 def keep_alive():
     server = threading.Thread(target=lambda: app.run(host='0.0.0.0', port=8080))
@@ -480,32 +430,27 @@ def handle_start(message):
         
         if len(message.text.split()) > 1:
             ref_code = message.text.split()[1]
-            with open(USERS_FILE, 'r+') as f:
-                users = json.load(f)
-                for uid, data in users.items():
-                    if data.get('referral_code') == ref_code:
-                        old_referrals = data['referrals']
-                        data['referrals'] += 1
-                        data['balance'] += REWARD_PER_REFERRAL
-                        
-                        # Check for milestone bonuses
-                        new_referrals = data['referrals']
-                        for milestone, bonus in MILESTONE_BONUSES.items():
-                            if new_referrals >= milestone and old_referrals < milestone:
-                                data['balance'] += bonus
-                                bot.send_message(
-                                    uid,
-                                    f"🎉 बधाई हो! आपने {milestone} रेफरल पूरे किए!\n"
-                                    f"🎁 मिलेस्टोन बोनस: ₹{bonus}\n"
-                                    f"💰 कुल बैलेंस: ₹{data['balance']}"
-                                )
-                                log_activity(f"User {uid} received milestone bonus ₹{bonus} for {milestone} referrals")
-                        
-                        f.seek(0)
-                        json.dump(users, f)
-                        f.truncate()
-                        log_activity(f"User {user_id} joined via referral from {uid}")
-                        break
+            for uid, data in USERS_DB.items():
+                if data.get('referral_code') == ref_code:
+                    old_referrals = data['referrals']
+                    data['referrals'] += 1
+                    data['balance'] += REWARD_PER_REFERRAL
+                    
+                    # Check for milestone bonuses
+                    new_referrals = data['referrals']
+                    for milestone, bonus in MILESTONE_BONUSES.items():
+                        if new_referrals >= milestone and old_referrals < milestone:
+                            data['balance'] += bonus
+                            bot.send_message(
+                                uid,
+                                f"🎉 बधाई हो! आपने {milestone} रेफरल पूरे किए!\n"
+                                f"🎁 मिलेस्टोन बोनस: ₹{bonus}\n"
+                                f"💰 कुल बैलेंस: ₹{data['balance']}"
+                            )
+                            log_activity(f"User {uid} received milestone bonus ₹{bonus} for {milestone} referrals")
+                    
+                    log_activity(f"User {user_id} joined via referral from {uid}")
+                    break
         
         update_user_data(user_id, new_user)
         log_activity(f"New user registered: {user_id}")
@@ -572,8 +517,11 @@ def handle_refer(message):
         return
     
     # Get bot username dynamically
-    bot_info = bot.get_me()
-    bot_username = bot_info.username
+    try:
+        bot_info = bot.get_me()
+        bot_username = bot_info.username
+    except:
+        bot_username = "TaskCompleteRewardsBot"  # Fallback
     
     referral_msg = (
         f"🔗 अपने दोस्तों को रेफर करें और प्रत्येक के लिए ₹{REWARD_PER_REFERRAL} कमाएं!\n\n"
@@ -640,16 +588,7 @@ def process_upi_id(message):
     }
     
     # Save withdrawal request
-    try:
-        with open(WITHDRAWALS_FILE, 'r+') as f:
-            withdrawals = json.load(f)
-            withdrawals.append(withdrawal_data)
-            f.seek(0)
-            json.dump(withdrawals, f)
-            f.truncate()
-    except (FileNotFoundError, json.JSONDecodeError):
-        with open(WITHDRAWALS_FILE, 'w') as f:
-            json.dump([withdrawal_data], f)
+    WITHDRAWALS_DB.append(withdrawal_data)
     
     # Reset user balance to 0
     update_user_data(user_id, field='balance', value=0)
@@ -662,11 +601,6 @@ def process_upi_id(message):
         "Admin 24 घंटे के अंदर आपका पेमेंट प्रोसेस करेगा।"
     )
     log_activity(f"User {user_id} requested ₹{withdrawal_data['amount']} withdrawal to UPI {upi_id}")
-
-# Keep the old function for compatibility but rename it
-def process_withdrawal_method(message):
-    # This is for backward compatibility - redirect to UPI processing
-    process_upi_id(message)
 
 @bot.message_handler(commands=['help'])
 def handle_help(message):
@@ -764,7 +698,7 @@ def handle_refer_button(message):
         bot_info = bot.get_me()
         bot_username = bot_info.username
     except:
-        bot_username = "YourBotUsername"  # Fallback
+        bot_username = "TaskCompleteRewardsBot"  # Fallback
     
     referral_msg = (
         f"🔗 अपने दोस्तों को रेफर करें और प्रत्येक के लिए ₹{REWARD_PER_REFERRAL} कमाएं!\n\n"
@@ -808,38 +742,6 @@ def handle_withdraw_button(message):
         "कृपया अपना UPI ID भेजें (जैसे: 9876543210@paytm):"
     )
     bot.register_next_step_handler(msg, process_upi_id)
-
-@bot.message_handler(func=lambda message: message.text == '📊 My Tasks')
-def handle_my_tasks_button(message):
-    if is_user_blocked(message.from_user.id):
-        return
-    
-    user_id = message.from_user.id
-    user = get_user_data(user_id)
-    
-    if not user:
-        bot.reply_to(message, "❌ You need to start the bot first with /start")
-        return
-    
-    # Get user's submissions
-    try:
-        with open(SUBMISSIONS_FILE, 'r') as f:
-            submissions = json.load(f)
-            user_submissions = submissions.get(str(user_id), [])
-    except (FileNotFoundError, json.JSONDecodeError):
-        user_submissions = []
-    
-    if not user_submissions:
-        bot.reply_to(message, "📊 You haven't submitted any tasks yet.")
-        return
-    
-    response = "📊 Your Task History:\n\n"
-    for sub in user_submissions[-10:]:  # Show last 10 submissions
-        status_emoji = "⏳" if sub['status'] == 'pending' else "✅" if sub['status'] == 'approved' else "❌"
-        response += f"{status_emoji} {sub['task_id']} - {sub['status'].title()}\n"
-        response += f"📅 {sub['submitted_at']}\n\n"
-    
-    bot.reply_to(message, response)
 
 @bot.message_handler(func=lambda message: message.text == '❓ सहायता')
 def handle_help_button(message):
@@ -943,14 +845,8 @@ def handle_admin_callbacks(call):
     
     elif action == 'users':
         # View Users with pagination
-        try:
-            with open(USERS_FILE, 'r') as f:
-                users = json.load(f)
-        except:
-            users = {}
-        
-        total_users = len(users)
-        active_users = len([u for u in users.values() if not u.get('blocked', False)])
+        total_users = len(USERS_DB)
+        active_users = len([u for u in USERS_DB.values() if not u.get('blocked', False)])
         
         user_text = f"👥 User Management\n\n"
         user_text += f"📊 Total Users: {total_users}\n"
@@ -958,7 +854,7 @@ def handle_admin_callbacks(call):
         user_text += f"❌ Blocked Users: {total_users - active_users}\n\n"
         
         # Show top 5 users by balance
-        sorted_users = sorted(users.items(), key=lambda x: x[1].get('balance', 0), reverse=True)
+        sorted_users = sorted(USERS_DB.items(), key=lambda x: x[1].get('balance', 0), reverse=True)
         user_text += "💰 Top Earners:\n"
         for i, (uid, data) in enumerate(sorted_users[:5], 1):
             user_text += f"{i}. {data.get('first_name', 'Unknown')} - ₹{data.get('balance', 0)}\n"
@@ -979,12 +875,7 @@ def handle_admin_callbacks(call):
     
     elif action == 'withdrawals':
         # View pending withdrawals
-        try:
-            with open(WITHDRAWALS_FILE, 'r') as f:
-                withdrawals = json.load(f)
-            pending_withdrawals = [w for w in withdrawals if w['status'] == 'pending']
-        except:
-            pending_withdrawals = []
+        pending_withdrawals = get_pending_withdrawals()
         
         if not pending_withdrawals:
             bot.edit_message_text(
@@ -1003,7 +894,7 @@ def handle_admin_callbacks(call):
                 
                 wd_text += f"{i}. {user_name}\n"
                 wd_text += f"💰 Amount: ₹{wd['amount']}\n"
-                wd_text += f"💳 UPI: {wd.get('upi_id', wd.get('method', 'N/A'))}\n"
+                wd_text += f"💳 UPI: {wd.get('upi_id', 'N/A')}\n"
                 wd_text += f"📅 {wd['requested_at']}\n\n"
             
             markup = types.InlineKeyboardMarkup()
@@ -1066,41 +957,17 @@ def handle_admin_callbacks(call):
     
     elif action == 'stats':
         # Show comprehensive statistics
-        try:
-            with open(USERS_FILE, 'r') as f:
-                users = json.load(f)
-        except:
-            users = {}
-        
-        try:
-            with open(TASKS_FILE, 'r') as f:
-                tasks = json.load(f)
-        except:
-            tasks = []
-        
-        try:
-            with open(WITHDRAWALS_FILE, 'r') as f:
-                withdrawals = json.load(f)
-        except:
-            withdrawals = []
-        
-        try:
-            with open(SUBMISSIONS_FILE, 'r') as f:
-                submissions = json.load(f)
-        except:
-            submissions = {}
-        
-        total_users = len(users)
-        total_tasks = len(tasks)
-        active_tasks = len([t for t in tasks if t.get('active', True)])
-        pending_withdrawals = len([w for w in withdrawals if w['status'] == 'pending'])
-        approved_withdrawals = len([w for w in withdrawals if w['status'] == 'approved'])
-        total_balance = sum(user.get('balance', 0) for user in users.values())
-        total_referrals = sum(user.get('referrals', 0) for user in users.values())
+        total_users = len(USERS_DB)
+        total_tasks = len(TASKS_DB)
+        active_tasks = len([t for t in TASKS_DB if t.get('active', True)])
+        pending_withdrawals = len(get_pending_withdrawals())
+        approved_withdrawals = len([w for w in WITHDRAWALS_DB if w['status'] == 'approved'])
+        total_balance = sum(user.get('balance', 0) for user in USERS_DB.values())
+        total_referrals = sum(user.get('referrals', 0) for user in USERS_DB.values())
         
         # Count completed tasks
         completed_tasks = 0
-        for user_subs in submissions.values():
+        for user_subs in SUBMISSIONS_DB.values():
             completed_tasks += len([s for s in user_subs if s['status'] == 'approved'])
         
         stats_text = (
@@ -1162,16 +1029,11 @@ def handle_admin_callbacks(call):
     
     elif action == 'logs':
         # Show activity logs
-        try:
-            with open(LOG_FILE, 'r') as f:
-                logs = f.read().split('\n')[-10:]  # Last 10 entries
-        except:
-            logs = ["No logs available"]
+        logs = ACTIVITY_LOGS[-10:] if len(ACTIVITY_LOGS) > 10 else ACTIVITY_LOGS
         
         log_text = "📝 Activity Logs (Last 10):\n\n"
         for log in logs:
-            if log.strip():
-                log_text += f"• {log}\n"
+            log_text += f"• [{log['timestamp']}] {log['message']}\n"
         
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("🔙 Back", callback_data="admin_back"))
@@ -1188,6 +1050,32 @@ def handle_admin_callbacks(call):
         handle_admin_panel_callback(call)
     
     bot.answer_callback_query(call.id)
+
+def handle_admin_panel_callback(call):
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        types.InlineKeyboardButton("📋 Manage Tasks", callback_data="admin_tasks"),
+        types.InlineKeyboardButton("👥 View Users", callback_data="admin_users")
+    )
+    markup.add(
+        types.InlineKeyboardButton("💳 Withdrawals", callback_data="admin_withdrawals"),
+        types.InlineKeyboardButton("📸 Screenshots", callback_data="admin_screenshots")
+    )
+    markup.add(
+        types.InlineKeyboardButton("📊 Statistics", callback_data="admin_stats"),
+        types.InlineKeyboardButton("📢 Broadcast", callback_data="admin_broadcast")
+    )
+    markup.add(
+        types.InlineKeyboardButton("⚙️ Settings", callback_data="admin_settings"),
+        types.InlineKeyboardButton("📝 Logs", callback_data="admin_logs")
+    )
+    
+    bot.edit_message_text(
+        "🔧 Admin Panel\n\nSelect an option:",
+        call.message.chat.id,
+        call.message.message_id,
+        reply_markup=markup
+    )
 
 # Additional Admin Callbacks for Task Management
 @bot.callback_query_handler(func=lambda call: call.data.startswith('admin_add_task'))
@@ -1224,8 +1112,7 @@ def process_new_task(message):
             return
         
         # Generate task ID
-        tasks = get_tasks()
-        task_id = f"task_{len(tasks) + 1}_{int(time.time())}"
+        task_id = f"task_{len(TASKS_DB) + 1}_{int(time.time())}"
         
         new_task = {
             'id': task_id,
@@ -1239,10 +1126,8 @@ def process_new_task(message):
             'completed_count': 0
         }
         
-        # Add task to file
-        tasks.append(new_task)
-        with open(TASKS_FILE, 'w') as f:
-            json.dump(tasks, f, indent=2)
+        # Add task to database
+        add_task(new_task)
         
         task_type_hindi = TASK_TYPES[task_type]
         
@@ -1272,18 +1157,12 @@ def handle_withdrawal_approval(call):
         _, _, user_id, requested_at = call.data.split('_', 3)
         
         # Update withdrawal status
-        with open(WITHDRAWALS_FILE, 'r+') as f:
-            withdrawals = json.load(f)
-            for wd in withdrawals:
-                if wd['user_id'] == user_id and wd['requested_at'] == requested_at:
-                    wd['status'] = 'approved'
-                    wd['approved_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    wd['approved_by'] = call.from_user.id
-                    break
-            
-            f.seek(0)
-            json.dump(withdrawals, f, indent=2)
-            f.truncate()
+        for wd in WITHDRAWALS_DB:
+            if wd['user_id'] == user_id and wd['requested_at'] == requested_at:
+                wd['status'] = 'approved'
+                wd['approved_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                wd['approved_by'] = call.from_user.id
+                break
         
         # Notify user
         try:
@@ -1339,25 +1218,19 @@ def process_withdrawal_rejection(message, user_id, requested_at):
     reason = message.text
     
     # Update withdrawal status and restore user balance
-    with open(WITHDRAWALS_FILE, 'r+') as f:
-        withdrawals = json.load(f)
-        for wd in withdrawals:
-            if wd['user_id'] == user_id and wd['requested_at'] == requested_at:
-                wd['status'] = 'rejected'
-                wd['rejected_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                wd['rejected_by'] = message.from_user.id
-                wd['rejection_reason'] = reason
-                
-                # Restore user balance
-                user = get_user_data(user_id)
-                if user:
-                    update_user_data(user_id, field='balance', value=user['balance'] + wd['amount'])
-                
-                break
-        
-        f.seek(0)
-        json.dump(withdrawals, f, indent=2)
-        f.truncate()
+    for wd in WITHDRAWALS_DB:
+        if wd['user_id'] == user_id and wd['requested_at'] == requested_at:
+            wd['status'] = 'rejected'
+            wd['rejected_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            wd['rejected_by'] = message.from_user.id
+            wd['rejection_reason'] = reason
+            
+            # Restore user balance
+            user = get_user_data(user_id)
+            if user:
+                update_user_data(user_id, field='balance', value=user['balance'] + wd['amount'])
+            
+            break
     
     # Notify user
     try:
@@ -1375,32 +1248,6 @@ def process_withdrawal_rejection(message, user_id, requested_at):
         f"✅ Withdrawal rejected for user {user_id}. Balance restored."
     )
     log_activity(f"Admin {message.from_user.id} rejected withdrawal for user {user_id}: {reason}")
-
-def handle_admin_panel_callback(call):
-    markup = types.InlineKeyboardMarkup(row_width=2)
-    markup.add(
-        types.InlineKeyboardButton("📋 Manage Tasks", callback_data="admin_tasks"),
-        types.InlineKeyboardButton("👥 View Users", callback_data="admin_users")
-    )
-    markup.add(
-        types.InlineKeyboardButton("💳 Withdrawals", callback_data="admin_withdrawals"),
-        types.InlineKeyboardButton("📸 Screenshots", callback_data="admin_screenshots")
-    )
-    markup.add(
-        types.InlineKeyboardButton("📊 Statistics", callback_data="admin_stats"),
-        types.InlineKeyboardButton("📢 Broadcast", callback_data="admin_broadcast")
-    )
-    markup.add(
-        types.InlineKeyboardButton("⚙️ Settings", callback_data="admin_settings"),
-        types.InlineKeyboardButton("📝 Logs", callback_data="admin_logs")
-    )
-    
-    bot.edit_message_text(
-        "🔧 Admin Panel\n\nSelect an option:",
-        call.message.chat.id,
-        call.message.message_id,
-        reply_markup=markup
-    )
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('task_'))
 def handle_task_selection(call):
@@ -1446,9 +1293,6 @@ def handle_task_selection(call):
         disable_web_page_preview=False
     )
     bot.answer_callback_query(call.id)
-
-# Add global variable to track current task submissions
-user_current_task = {}
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('complete_'))
 def handle_complete_task(call):
@@ -1500,55 +1344,7 @@ def handle_proof_submission(message):
     )
     log_activity(f"User {user_id} submitted proof for task {task_id}")
 
-# ======================
-# Admin Handlers
-# ======================
-
-@bot.message_handler(commands=['newtask'])
-def handle_new_task(message):
-    if not is_admin(message.from_user.id):
-        bot.reply_to(message, "❌ Admin only command")
-        return
-    
-    msg = bot.reply_to(message, "📝 Enter task title:")
-    bot.register_next_step_handler(msg, process_task_title)
-
-def process_task_title(message):
-    title = message.text
-    msg = bot.reply_to(message, "📝 Enter task description:")
-    bot.register_next_step_handler(msg, lambda m: process_task_description(m, title))
-
-def process_task_description(message, title):
-    description = message.text
-    msg = bot.reply_to(message, "💰 Enter task reward amount:")
-    bot.register_next_step_handler(msg, lambda m: process_task_reward(m, title, description))
-
-def process_task_reward(message, title, description):
-    try:
-        reward = float(message.text)
-        task_id = f"task_{int(datetime.now().timestamp())}"
-        
-        new_task = {
-            "id": task_id,
-            "title": title,
-            "description": description,
-            "reward": reward,
-            "active": True,
-            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        }
-        
-        add_task(new_task)
-        bot.reply_to(
-            message,
-            f"✅ New task created!\n\n"
-            f"📌 {title}\n"
-            f"💰 ₹{reward}\n"
-            f"🆔 {task_id}"
-        )
-        log_activity(f"Admin {message.from_user.id} created new task: {task_id}")
-    except ValueError:
-        bot.reply_to(message, "❌ Invalid reward amount. Please enter a number.")
-
+# Screenshot verification for admin
 @bot.message_handler(commands=['approve'])
 def handle_approve(message):
     if not is_admin(message.from_user.id):
@@ -1638,14 +1434,10 @@ def handle_approval_decision(call):
         update_user_data(user_id, field='completed_tasks', value=completed_tasks)
         
         # Update task completion count
-        tasks = get_tasks()
-        for i, t in enumerate(tasks):
+        for i, t in enumerate(TASKS_DB):
             if t['id'] == task_id:
-                tasks[i]['completed_count'] = tasks[i].get('completed_count', 0) + 1
+                TASKS_DB[i]['completed_count'] = TASKS_DB[i].get('completed_count', 0) + 1
                 break
-        
-        with open(TASKS_FILE, 'w') as f:
-            json.dump(tasks, f, indent=2)
         
         update_submission_status(user_id, task_id, 'approved')
         
@@ -1693,219 +1485,15 @@ def process_rejection_reason(message, user_id, task_id, file_id):
     )
     log_activity(f"Admin {message.from_user.id} rejected submission from {user_id} for task {task_id}")
 
-@bot.message_handler(commands=['users'])
-def handle_users_list(message):
-    if not is_admin(message.from_user.id):
-        bot.reply_to(message, "❌ Admin only command")
-        return
-    
-    with open(USERS_FILE, 'r') as f:
-        users = json.load(f)
-    
-    response = "👥 Users List\n\n"
-    for uid, data in users.items():
-        response += (
-            f"👤 {data.get('first_name', 'Unknown')} (ID: {uid})\n"
-            f"💰 Balance: ₹{data.get('balance', 0)}\n"
-            f"👥 Referrals: {data.get('referrals', 0)}\n"
-            f"📅 Joined: {data.get('joined', 'N/A')}\n"
-            f"🚫 Blocked: {'Yes' if data.get('blocked', False) else 'No'}\n\n"
-        )
-    
-    for i in range(0, len(response), 4096):
-        bot.reply_to(message, response[i:i+4096])
-
-@bot.message_handler(commands=['block'])
-def handle_block_user(message):
-    if not is_admin(message.from_user.id):
-        bot.reply_to(message, "❌ Admin only command")
-        return
-    
-    try:
-        target_id = message.text.split()[1]
-        update_user_data(target_id, 'blocked', True)
-        block_user(target_id)
-        bot.reply_to(message, f"✅ User {target_id} has been blocked")
-        log_activity(f"Admin {message.from_user.id} blocked user {target_id}")
-    except (IndexError, KeyError):
-        bot.reply_to(message, "❌ Usage: /block <user_id>")
-
-@bot.message_handler(commands=['broadcast'])
-def handle_broadcast(message):
-    if not is_admin(message.from_user.id):
-        bot.reply_to(message, "❌ Admin only command")
-        return
-    
-    try:
-        text = message.text.split(' ', 1)[1]
-    except IndexError:
-        bot.reply_to(message, "❌ Usage: /broadcast <message>")
-        return
-    
-    with open(USERS_FILE, 'r') as f:
-        users = json.load(f)
-    
-    success = 0
-    failed = 0
-    for uid in users.keys():
-        try:
-            bot.send_message(uid, f"📢 Admin Announcement:\n\n{text}")
-            success += 1
-        except Exception as e:
-            failed += 1
-    
-    bot.reply_to(
-        message,
-        f"📢 Broadcast completed!\n\n"
-        f"✅ Success: {success}\n"
-        f"❌ Failed: {failed}"
-    )
-    log_activity(f"Admin {message.from_user.id} sent broadcast to {success} users")
-
-@bot.message_handler(commands=['admin'])
-def handle_admin_panel(message):
-    if not is_admin(message.from_user.id):
-        bot.reply_to(message, "❌ Admin only command")
-        return
-    
-    markup = types.InlineKeyboardMarkup()
-    markup.row(
-        types.InlineKeyboardButton("📊 Statistics", callback_data="admin_stats"),
-        types.InlineKeyboardButton("👥 Users", callback_data="admin_users")
-    )
-    markup.row(
-        types.InlineKeyboardButton("📝 Pending Tasks", callback_data="admin_pending"),
-        types.InlineKeyboardButton("💸 Withdrawals", callback_data="admin_withdrawals")
-    )
-    markup.row(
-        types.InlineKeyboardButton("📢 Broadcast", callback_data="admin_broadcast"),
-        types.InlineKeyboardButton("➕ New Task", callback_data="admin_newtask")
-    )
-    
-    bot.reply_to(
-        message,
-        "🔧 Admin Panel\n\nSelect an option:",
-        reply_markup=markup
-    )
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith('admin_'))
-def handle_admin_callback(call):
-    if not is_admin(call.from_user.id):
-        bot.answer_callback_query(call.id, "❌ Admin only")
-        return
-    
-    action = call.data.split('_')[1]
-    
-    if action == 'stats':
-        # Get statistics
-        with open(USERS_FILE, 'r') as f:
-            users = json.load(f)
-        
-        total_users = len(users)
-        total_balance = sum(user.get('balance', 0) for user in users.values())
-        total_referrals = sum(user.get('referrals', 0) for user in users.values())
-        
-        stats_text = (
-            f"📊 Bot Statistics\n\n"
-            f"👥 Total Users: {total_users}\n"
-            f"💰 Total Balance: ₹{total_balance}\n"
-            f"👥 Total Referrals: {total_referrals}\n"
-            f"📅 Active Today: {len([u for u in users.values() if u.get('joined', '').startswith(datetime.now().strftime('%Y-%m-%d'))])}"
-        )
-        
-        bot.edit_message_text(
-            stats_text,
-            call.message.chat.id,
-            call.message.message_id
-        )
-    
-    elif action == 'users':
-        # Show users list
-        with open(USERS_FILE, 'r') as f:
-            users = json.load(f)
-        
-        users_text = "👥 Recent Users:\n\n"
-        for i, (uid, data) in enumerate(list(users.items())[-10:]):
-            users_text += f"{i+1}. {data.get('first_name', 'Unknown')} (ID: {uid})\n"
-            users_text += f"   💰 ₹{data.get('balance', 0)} | 👥 {data.get('referrals', 0)} refs\n\n"
-        
-        bot.edit_message_text(
-            users_text,
-            call.message.chat.id,
-            call.message.message_id
-        )
-    
-    elif action == 'pending':
-        # Show pending submissions
-        pending = get_pending_submissions()
-        if not pending:
-            bot.edit_message_text(
-                "✅ No pending submissions",
-                call.message.chat.id,
-                call.message.message_id
-            )
-        else:
-            pending_text = f"📝 Pending Submissions ({len(pending)}):\n\n"
-            for sub in pending[:5]:
-                user = get_user_data(sub['user_id'])
-                pending_text += f"👤 {user['first_name']} - {sub['task_id']}\n"
-                pending_text += f"📅 {sub['submitted_at']}\n\n"
-            
-            bot.edit_message_text(
-                pending_text,
-                call.message.chat.id,
-                call.message.message_id
-            )
-    
-    elif action == 'withdrawals':
-        # Show pending withdrawals
-        withdrawals = get_pending_withdrawals()
-        if not withdrawals:
-            bot.edit_message_text(
-                "✅ No pending withdrawals",
-                call.message.chat.id,
-                call.message.message_id
-            )
-        else:
-            wd_text = f"💸 Pending Withdrawals ({len(withdrawals)}):\n\n"
-            for wd in withdrawals[:5]:
-                user = get_user_data(wd['user_id'])
-                wd_text += f"👤 {user['first_name']} - ₹{wd['amount']} via {wd.get('upi_id', wd.get('method', 'UPI'))}\n"
-                wd_text += f"📅 {wd['requested_at']}\n\n"
-            
-            bot.edit_message_text(
-                wd_text,
-                call.message.chat.id,
-                call.message.message_id
-            )
-    
-    elif action == 'broadcast':
-        msg = bot.send_message(
-            call.from_user.id,
-            "📢 Enter broadcast message:"
-        )
-        bot.register_next_step_handler(msg, process_broadcast_message)
-    
-    elif action == 'newtask':
-        msg = bot.send_message(
-            call.from_user.id,
-            "📝 Enter task title:"
-        )
-        bot.register_next_step_handler(msg, process_task_title)
-    
-    bot.answer_callback_query(call.id)
-
 def process_broadcast_message(message):
     if not is_admin(message.from_user.id):
         return
     
     text = message.text
-    with open(USERS_FILE, 'r') as f:
-        users = json.load(f)
     
     success = 0
     failed = 0
-    for uid in users.keys():
+    for uid in USERS_DB.keys():
         try:
             bot.send_message(uid, f"📢 Admin Announcement:\n\n{text}")
             success += 1
@@ -1919,89 +1507,15 @@ def process_broadcast_message(message):
         f"❌ Failed: {failed}"
     )
     log_activity(f"Admin {message.from_user.id} sent broadcast to {success} users")
-
-# ======================
-# Sample Data Creation
-# ======================
-
-def create_sample_tasks():
-    """Create sample tasks for testing if no tasks exist"""
-    tasks = get_tasks()
-    if len(tasks) == 0:
-        sample_tasks = [
-            {
-                'id': f"task_sample_1_{int(time.time())}",
-                'title': 'YouTube Channel Subscribe करें',
-                'description': 'हमारे YouTube चैनल को सब्सक्राइब करें और बेल आइकन दबाएं',
-                'link': 'https://youtube.com/@example',
-                'reward': 5,
-                'type': 'youtube_subscribe',
-                'active': True,
-                'created_at': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                'completed_count': 0
-            },
-            {
-                'id': f"task_sample_2_{int(time.time())}",
-                'title': 'Instagram Page Follow करें',
-                'description': 'हमारे Instagram पेज को फॉलो करें',
-                'link': 'https://instagram.com/example',
-                'reward': 3,
-                'type': 'instagram_follow',
-                'active': True,
-                'created_at': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                'completed_count': 0
-            },
-            {
-                'id': f"task_sample_3_{int(time.time())}",
-                'title': 'Telegram Group Join करें',
-                'description': 'हमारे Telegram ग्रुप में शामिल हों',
-                'link': 'https://t.me/example',
-                'reward': 4,
-                'type': 'telegram_join',
-                'active': True,
-                'created_at': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                'completed_count': 0
-            },
-            {
-                'id': f"task_sample_4_{int(time.time())}",
-                'title': 'Facebook Page Like करें',
-                'description': 'हमारे Facebook पेज को लाइक करें',
-                'link': 'https://facebook.com/example',
-                'reward': 3,
-                'type': 'facebook_like',
-                'active': True,
-                'created_at': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                'completed_count': 0
-            },
-            {
-                'id': f"task_sample_5_{int(time.time())}",
-                'title': 'WhatsApp Group Join करें',
-                'description': 'हमारे WhatsApp ग्रुप में शामिल हों',
-                'link': 'https://chat.whatsapp.com/example',
-                'reward': 2,
-                'type': 'whatsapp_join',
-                'active': True,
-                'created_at': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                'completed_count': 0
-            }
-        ]
-        
-        with open(TASKS_FILE, 'w') as f:
-            json.dump(sample_tasks, f, indent=2)
-        
-        log_activity("Sample tasks created successfully")
-        print("✅ Sample tasks created successfully")
 
 # ======================
 # Main Function
 # ======================
 
 def main():
-    # Initialize data files
-    initialize_data_files()
-    
-    # Create sample tasks if none exist
-    create_sample_tasks()
+    # Log startup
+    log_activity("TaskCompleteRewardsBot starting...")
+    log_activity("Sample tasks loaded successfully")
     
     # Start keep alive server
     keep_alive()
@@ -2012,6 +1526,12 @@ def main():
     
     # Start bot
     log_activity("Bot started successfully")
+    print("🎯 TaskCompleteRewardsBot is now running!")
+    print("📋 All data stored in memory (no external files)")
+    print("👨‍💼 Admin ID: 5367009004")
+    print("🌐 Web server running on http://localhost:8080")
+    print("📊 Bot statistics available at http://localhost:8080/stats")
+    
     bot.infinity_polling()
 
 if __name__ == "__main__":
