@@ -1,3 +1,144 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+🎯 TaskCompleteRewardsBot - Complete Self-Contained Bot File
+
+एक पूर्ण फीचर्ड Telegram बॉट जो यूजर्स को टास्क पूरा करने के लिए रिवॉर्ड देता है और UPI के माध्यम से पेमेंट सिस्टम प्रदान करता है।
+
+INSTALLATION & SETUP:
+=====================
+1. Install dependencies:
+   pip install pyTelegramBotAPI requests flask --break-system-packages
+   
+   OR if pip fails, try:
+   pip3 install pyTelegramBotAPI==4.28.0 requests==2.32.4 flask==3.1.1 --break-system-packages
+
+2. Get Telegram Bot Token:
+   - Message @BotFather on Telegram
+   - Create new bot with /newbot
+   - Copy the token
+
+3. Set BOT_TOKEN (choose one method):
+   Method A - Environment Variable:
+   export BOT_TOKEN="your_bot_token_here"
+   
+   Method B - Edit line ~77 in this file:
+   BOT_TOKEN = "your_bot_token_here"
+
+4. Run the bot:
+   python3 bot.py
+
+5. Test the bot:
+   - Send /start to your bot on Telegram
+   - If you're admin (ID: 5367009004), you'll see Admin Panel button
+   - Use 🎯 नया कार्य to see sample tasks
+
+TROUBLESHOOTING:
+===============
+- Bot not starting: Check BOT_TOKEN is correct
+- Permission denied: Use --break-system-packages flag with pip
+- Python not found: Use python3 instead of python
+- Port 8080 busy: Change port in keep_alive() function
+- Dependencies error: Install each package individually
+
+FEATURES:
+=========
+🎯 User Features:
+- Hindi Interface with keyboard navigation
+- Task Management (YouTube, Instagram, Telegram, Facebook, WhatsApp)
+- Balance System (₹10 minimum withdrawal)
+- UPI Withdrawal System
+- Referral Program (₹2 per referral + milestone bonuses)
+- Screenshot submission for task verification
+
+🔧 Admin Features (Admin ID: 5367009004):
+- Comprehensive Admin Panel
+- Task Management (Add, Edit, Delete, View)
+- User Management (View, Block/Unblock, Statistics)
+- Withdrawal Management (Approve/Reject)
+- Screenshot Verification
+- Analytics and Statistics
+- Broadcast System
+- Activity Logs
+
+💰 Payment System:
+- ₹10 minimum withdrawal
+- ₹2 per referral reward
+- Milestone bonuses: 5=₹10, 10=₹25, 25=₹50, 50=₹100, 100=₹250
+- UPI payment integration
+- Real-time balance updates
+
+📱 Commands & Usage Guide:
+=========================
+User Commands:
+- /start - Bot शुरू करें
+- 🎯 नया कार्य - Available tasks देखें
+- 💰 बैलेंस - Balance check करें
+- 🔗 रेफर - Referral link और bonuses
+- 💸 निकासी - UPI withdrawal
+- ❓ सहायता - Help और support
+
+Admin Commands (Admin ID: 5367009004):
+- /admin या 🔧 Admin Panel - Admin panel access
+- Complete admin functionality through inline buttons
+
+HOW TO USE:
+===========
+For Users:
+1. Send /start to register
+2. Click 🎯 नया कार्य to see available tasks
+3. Select a task and follow instructions
+4. Complete the task (subscribe, follow, join, etc.)
+5. Take screenshot showing completion
+6. Send screenshot to bot
+7. Wait for admin approval
+8. Check balance with 💰 बैलेंस
+9. Withdraw money with 💸 निकासी (minimum ₹10)
+10. Refer friends with 🔗 रेफर to earn ₹2 per referral
+
+For Admin:
+1. Use 🔧 Admin Panel or /admin
+2. Manage Tasks: Add new tasks with rewards
+3. View Users: See all registered users
+4. Withdrawals: Approve/reject withdrawal requests
+5. Screenshots: Verify task completions
+6. Statistics: View bot analytics
+7. Broadcast: Send messages to all users
+8. Logs: Monitor bot activity
+
+UPI Withdrawal Process:
+1. User requests withdrawal
+2. User provides UPI ID (e.g., 9876543210@paytm)
+3. Admin reviews and approves
+4. Payment sent to user's UPI
+
+DATABASE FILES:
+==============
+All data stored in 'data/' directory:
+- users.json: User accounts and balances
+- tasks.json: Available tasks
+- submissions.json: Screenshot submissions
+- withdrawals.json: Withdrawal requests
+- logs.json: Activity logs
+
+MILESTONE REWARDS:
+=================
+Referral Milestones:
+- 5 referrals = ₹10 bonus
+- 10 referrals = ₹25 bonus
+- 25 referrals = ₹50 bonus
+- 50 referrals = ₹100 bonus
+- 100 referrals = ₹250 bonus
+
+Task Rewards: ₹2-5 per completed task
+Referral Rewards: ₹2 per successful referral
+
+Author: TaskCompleteRewardsBot Team
+Version: 1.0
+License: MIT
+"""
+
 import os
 import json
 import threading
